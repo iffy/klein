@@ -6,7 +6,9 @@ from klein.resource import KleinResource
 from twisted.internet.defer import succeed, Deferred
 from twisted.web import server
 from twisted.web.resource import Resource
+from twisted.web.static import File
 from twisted.web.template import Element, XMLString, renderer
+from twisted.python.filepath import FilePath
 
 from mock import Mock
 
@@ -170,6 +172,31 @@ class KleinResourceTests(unittest.TestCase):
 
         d.addCallback(_cb)
         deferredResponse.callback('ok')
+
+        return d
+
+
+    def test_FileRendering(self):
+        """
+        A L{File} can be rendered as advertised.
+        """
+        app = self.app
+
+        root = FilePath(self.mktemp())
+        root.makedirs()
+        response = File(root.path)
+
+        @app.route("/static/")
+        def static(request):
+            return response
+
+        request = requestMock("/static/")
+
+        d = _render(self.kr, request)
+        def _cb(result):
+            request.write.assert_called_with("<h1>foo</h1>")
+
+        d.addCallback(_cb)
 
         return d
 
