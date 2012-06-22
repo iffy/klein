@@ -24,7 +24,8 @@ class KleinResource(Resource):
     def render(self, request):
         # Stuff we need to know for the mapper.
         server_name = request.getRequestHostname()
-        server_port = request.getHost().port
+        #server_port = request.getHost().port
+        server_port = 80
         if (bool(request.isSecure()), server_port) not in [
                 (True, 443), (False, 80)]:
             server_name = '%s:%d' % (server_name, server_port)

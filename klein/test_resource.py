@@ -3,12 +3,16 @@ from twisted.trial import unittest
 from klein import Klein
 from klein.resource import KleinResource
 
+from twisted.internet import reactor
 from twisted.internet.defer import succeed, Deferred
 from twisted.web import server
 from twisted.web.resource import Resource
 from twisted.web.static import File
 from twisted.web.template import Element, XMLString, renderer
+from twisted.web.server import Site
+from twisted.web.client import HTTPClientFactory
 from twisted.python.filepath import FilePath
+from twisted.python import log
 
 from mock import Mock
 
@@ -25,6 +29,7 @@ def requestMock(path, method="GET", host="localhost", port=8080, isSecure=False)
     request.isSecure.return_value = isSecure
     request.notifyFinish.return_value = Deferred()
     request.finished = False
+    request.uri = path
     request.__klein_branch_segments__ = []
 
     def render(resource):
@@ -190,15 +195,21 @@ class KleinResourceTests(unittest.TestCase):
         def static(request):
             return response
 
-        request = requestMock("/static/")
-
-        d = _render(self.kr, request)
+        socket_file = self.mktemp()
+        
+        # server
+        site = Site(self.app.resource())
+        server = reactor.listenUNIX(socket_file, site)
+        self.addCleanup(server.stopListening)
+        
+        # client
+        factory = HTTPClientFactory('http://127.0.0.1/static/')
+        reactor.connectUNIX(socket_file, factory)
+        
         def _cb(result):
-            request.write.assert_called_with("<h1>foo</h1>")
-
-        d.addCallback(_cb)
-
-        return d
+            log.msg(result.value.response)
+            self.assertEqual(result.value.status, '200')
+        return factory.deferred.addBoth(_cb)
 
 
     def test_elementRendering(self):
